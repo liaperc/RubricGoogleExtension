@@ -1,20 +1,31 @@
 {
     "name": "Nueva Canvas to Rubric Extension",
     "version": "0.1.0",
+    "manifest_version": 3,
     "description": "TBD",
     "permissions": [
-        "tabs"
+        "activeTab",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://canvas.instructure.com/*",
+        "https://*.canvas-user-content.com/*",
+        "https://*.cluster*.canvas-user-content.com/*"
     ],
     "background": {
         "service_worker": "scripts/background.js"
     },
     "content_scripts": [
         {
-            "matches": ["https://*.instructure.com/*"],
-            "js": ["scripts/content.js"]
+        "matches": [
+            "https://canvas.instructure.com/courses/*/gradebook*",
+            "https://*.instructure.com/courses/*/gradebook*"
+        ],
+        "js": ["scripts/content.js"],
+        "run_at": "document_end"
         }
     ],
-    "manifest_version": 3,
+    
     "action": {
         "default_icon": {
             "16": "images/icon16.png",
