@@ -2,15 +2,23 @@
     "name": "Nueva Canvas to Rubric Extension",
     "version": "0.1.0",
     "manifest_version": 3,
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqZsn9RnozDLE7KLdFDpykhNLcPMhXbSzyITvu2bfi1NxEZEG9dsXQcBDdAqmttIZe4v+gJ+VDY7exVWaeJDi4mkxOXhjyUKOskKJCvFbcKKogiQQ9S9lI4vsaYnRPhbJYUca2XEezDzJVZ10gAxkzQzypsp96OjChPa+RZ0NCz7ksSebfrfE4ZyEDDEiU2ak2U9X0RkxC4tYJAln6NhaYFDVRepvGK23/DZxF0ozFZXPJyWREfBFWm1wM9kbbl2q5taFQED5a46Uj8b2pVqCtmNN62uaUL7yuX+r2jROYIQsD1E4D1d+woCc9StSYpaMtVtRDbA5Lnort7Ek7N1bpwIDAQAB",
     "description": "TBD",
     "permissions": [
         "activeTab",
-        "storage"
+        "storage",
+        "identity"
     ],
+    "oauth2": {
+        "client_id": "936936943371-5rtqp2midjvldslchtftsk88esf5qlse.apps.googleusercontent.com",
+        "scopes": [
+            "https://www.googleapis.com/auth/drive"
+        ]
+    },
     "host_permissions": [
         "https://canvas.instructure.com/*",
         "https://*.canvas-user-content.com/*",
-        "https://*.cluster*.canvas-user-content.com/*"
+        "https://www.googleapis.com/*"
     ],
     "background": {
         "service_worker": "scripts/background.js"
@@ -18,8 +26,7 @@
     "content_scripts": [
         {
         "matches": [
-            "https://canvas.instructure.com/courses/*/gradebook*",
-            "https://*.instructure.com/courses/*/gradebook*"
+            "<all_urls>"
         ],
         "js": ["scripts/content.js"],
         "run_at": "document_end"

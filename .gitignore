@@ -1,1 +1,6 @@
 .DS_Store
+*.pem
+Extension.pem
+*.crx
+*.zip
+node_modules/
