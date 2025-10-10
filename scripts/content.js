@@ -3,7 +3,6 @@
         if (message.type === 'GRADEBOOK_LOADED') {
             addButton();
         }
-        return true;
     });
 
     const addButton = () => {
@@ -87,12 +86,12 @@
                     }}
                 );
             });
-
+            console.log(studentData[0])
             // const rubricFormatURL = await getRubricFormatURL();
 
             // window.open(rubricFormatURL, '_blank');
            
-            downloadCsv(csvContent, 'test.csv');
+            // downloadCsv(csvContent, 'test.csv');
             alert("Rubrics formatted and downloaded successfully!");
             
         } catch (error) {

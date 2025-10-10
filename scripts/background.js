@@ -59,7 +59,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.error("Failed to parse rubric data:", error);
             sendResponse({ success: false, error: error.message });
         }
-        return true;
+        return false;
         
     }
     if (request.type === "getTestCSV"){
@@ -76,10 +76,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true;
     }
+    return false
 });
 
 //returns a list of lists of length 2 in the format [Student Name, Dictionary]. The using the dictionary you can reference a standard by Dictionary["Standard Name"] and it will give you the score for the student. 
-const sortData = async (data) => {
+const sortData = (data) => {
     try{
         //row will be the first value and column will be the second
         const dataArray = data.split('\n').map(line => line.split(','));
