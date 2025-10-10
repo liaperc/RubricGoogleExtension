@@ -90,7 +90,7 @@ const { resolve } = require("path");
             });
             console.log(studentData[0])
             const rubricFormatURL = await getRubricFormatURL();
-            console.log(getRubricFormatURL)
+            console.log(rubricFormatURL)
             // window.open(rubricFormatURL, '_blank');
             // const sheetInfo = await new Promise((resolve, reject) => {
             //     chrome.runtime.sendMessage({
