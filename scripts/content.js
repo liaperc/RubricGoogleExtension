@@ -1,3 +1,5 @@
+const { resolve } = require("path");
+
 (() => {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === 'GRADEBOOK_LOADED') {
@@ -87,9 +89,14 @@
                 );
             });
             console.log(studentData[0])
-            // const rubricFormatURL = await getRubricFormatURL();
-
+            const rubricFormatURL = await getRubricFormatURL();
+            console.log(getRubricFormatURL)
             // window.open(rubricFormatURL, '_blank');
+            // const sheetInfo = await new Promise((resolve, reject) => {
+            //     chrome.runtime.sendMessage({
+            //         type: "getSheetInfo",
+            //     })
+            // })
            
             // downloadCsv(csvContent, 'test.csv');
             alert("Rubrics formatted and downloaded successfully!");

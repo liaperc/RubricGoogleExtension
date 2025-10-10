@@ -1,3 +1,7 @@
+//for CSV parsing
+importScripts("../libraries/papaparse.min.js");
+
+
 //primary listener to listen for when the gradebook on Canvas is opened
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url && tab.url.includes('instructure.com') && tab.url.includes('gradebook')) {
@@ -83,7 +87,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 const sortData = (data) => {
     try{
         //row will be the first value and column will be the second
-        const dataArray = data.split('\n').map(line => line.split(','));
+        const dataArray = Papa.parse(data, {
+            header: false,
+            skipEmptyLines: true,
+            dynamicTyping: true
+          }).data;
+          
+        console.log(dataArray)
+
         let startPoint = 0;
         let endPoint = 0;
         //starting and ending points for columns of rubric standards
@@ -109,16 +120,19 @@ const sortData = (data) => {
             if (celli.includes("Final Score") && !celli.includes("Unposted Final Score")){
                 usefulColumns.push(i);
                 //this is setting up for later
-                standards.push(celli.replace(" Final Score", ""));
+                standard = celli.replace("Final Score", "").trim();
+                standards.push(standard);
             };
         };
         
+        
         //this is the first row with a student 
         const firstStudentRow = 2;
+        //autoset to last row
         let studentEnd = dataArray.length;
         //this loop finds the last useful row
         for (let i = firstStudentRow; i<dataArray.length; i++){
-            if (dataArray[i][0] == ""){
+            if (dataArray[i][0] == "" || !dataArray[i][0]){
                 studentEnd = i;
                 break;
             };
@@ -132,18 +146,21 @@ const sortData = (data) => {
         decimalAmount = 1;
         for (let z = firstStudentRow; z < studentEnd; z++){
             let studentName = dataArray[z][0];
+ 
             let individualDictionary = {};
             for (let i = 0; i < usefulColumns.length; i++){ 
                 let celli = dataArray[z][usefulColumns[i]];
-                //this will make sure that if no number is given, we get a 0 and not a NaN
-                let floatCelli = parseFloat(celli) || 0;
+                //turns the nulls into zeroes
+                celli = celli ?? 0;
                 //these values are weridly in percentages so a 4 would be written as 100 and a 3 as 75
-                
-                let score = rubricMax*(floatCelli/100).toFixed(decimalAmount);
+                let score = (rubricMax*(celli/100)).toFixed(decimalAmount);
                 let standard = standards[i];
+                
                 individualDictionary[standard] = score;
+                
 
             };
+
             studentList.push([studentName, individualDictionary]);
         };
         
