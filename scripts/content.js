@@ -51,31 +51,48 @@
         button.innerText = "Loading...";
         
         try {
-            const rubricFormatURL = await getRubricFormatURL();
-            const csvContent = await getCSVContent();
-            if (!csvContent) {
-                alert("Failed to get CSV content");
-                return;
-            }
-            window.open(rubricFormatURL, '_blank');
-            
+            //the following will get the CSV from canvas if testCSV = false, but for testing purposes I have a seperate CSV
+            testCSV = true
+            let csvContent
+            if (!testCSV){
+                csvContent = await getCSVContent();
+            } else {
+                //this literally just pulls the "testRubric.csv" from the files
+                csvContent = await new Promise((resolve,reject) => {
+                    chrome.runtime.sendMessage({
+                        type: "getTestCSV"
+                    }, (response) => {
+                        if(chrome.runtime.lastError){
+                            reject(new Error(chrome.runtime.lastError.message));
+                        } else if (response && response.success) {
+                            resolve(response.data);
+                        } else {
+                            reject(new Error(response ? response.error : "Unknown error"));
+                        }
+                    });
+                });
+            };
                 
-            // const studentData = await new promise ((resolve, reject) => {
-            //     chrome.runtime.sendMessage({ 
-            //         type: "sortData",
-            //         data: csvContent
-            //     }, (response) => {
-            //         if (chrome.runtime.lastError) {
-            //             reject(new Error(chrome.runtime.lastError.message));
-            //         } else if (response && response.success) {
-            //             resolve(response.data);
-            //         } else {
-            //             reject(new Error(response ? response.error : "Unknown error"));
-            //         }}
-            //     );
-            // });
+            const studentData = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({ 
+                    type: "sortData",
+                    data: csvContent
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else if (response && response.success) {
+                        resolve(response.data);
+                    } else {
+                        reject(new Error(response ? response.error : "Unknown error"));
+                    }}
+                );
+            });
+
+            // const rubricFormatURL = await getRubricFormatURL();
+
+            // window.open(rubricFormatURL, '_blank');
            
-            // downloadCsv(modifiedCsv, 'formatted-rubrics.csv');
+            downloadCsv(csvContent, 'test.csv');
             alert("Rubrics formatted and downloaded successfully!");
             
         } catch (error) {
@@ -229,12 +246,6 @@
         }
         
         throw new Error("Timed out waiting for export to complete");
-    };
- 
-    const processCSVData = (csvContent) => {
-        // Add your custom processing logic here
-
-        return "// Formatted by Rubric Extension\n" + csvContent;
     };
 
     const downloadCsv = (csvContent, filename) => {

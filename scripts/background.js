@@ -1,12 +1,12 @@
-// Background script for Canvas Rubric Extension
-
+//primary listener to listen for when the gradebook on Canvas is opened
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url && tab.url.includes('instructure.com') && tab.url.includes('gradebook')) {
         chrome.tabs.sendMessage(tabId, {type: 'GRADEBOOK_LOADED'});
-    }
+    };
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    //this request attempts to retrieve the CSV for the gradebook using the download link produced by Canvas
     if (request.action === 'fetchCSV') {
         console.log("Background script: Fetching CSV from", request.url);
         
@@ -34,6 +34,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         
         return true;
     }
+    //This generates a copy link to copy the spreadsheet
     if (request.type === "COPY_SPREADSHEET") {
         console.log("Starting spreadsheet copy...");
         copySpreadsheet(request.spreadsheetId, request.newName)
@@ -48,32 +49,115 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         
         return true;
     }
+    //this calls the function to sort the CSV data
     if (request.type === "sortData"){
-        sortData(request.data).then(studentDictionary => {
-            sendResponse({ success: true, data: studentDictionary });
-        }).catch(error => {
-            console.error("Sorting failed:", error);
+        
+        try{
+            const studentList = sortData(request.data)
+            sendResponse({ success: true, data: studentList });
+        } catch(error) {
+            console.error("Failed to parse rubric data:", error);
             sendResponse({ success: false, error: error.message });
-        });
+        }
         return true;
         
     }
-});
-const sortData = async (data) => {
-    const dataArray = data.split('\n').map(line => line.split(','));
-    const standards = dataArray[0].slice(4)
-    console.log(standards)
-    for (let i = 0; i < dataArray.len; i++){
-
-
+    if (request.type === "getTestCSV"){
+        fetch(chrome.runtime.getURL("data/testRubric.csv"))
+        .then(response => response.text())
+        .then(testCSV => {
+            sendResponse({success: true, data: testCSV});
+        }).catch(error => {
+            console.error("Background script: Error fetching test CSV:", error);
+            sendResponse({
+                success: false,
+                error: error.message
+            });
+        });
+        return true;
     }
-    const studentDictionary = {};
+});
 
+//returns a list of lists of length 2 in the format [Student Name, Dictionary]. The using the dictionary you can reference a standard by Dictionary["Standard Name"] and it will give you the score for the student. 
+const sortData = async (data) => {
+    try{
+        //row will be the first value and column will be the second
+        const dataArray = data.split('\n').map(line => line.split(','));
+        let startPoint = 0;
+        let endPoint = 0;
+        //starting and ending points for columns of rubric standards
+        for (let i = 0; i < dataArray[0].length; i++){ 
+            let celli = dataArray[1][i];
+            let cellii = dataArray[0][i];
 
-    return studentDictionary;
-}
+            //this is where useful info begins
+            if (celli == "(read only)" && startPoint == 0){
+                startPoint = i;
+            };
+            //this is where the useful info ends
+            if (cellii == "Current Score" && endPoint == 0){
+                endPoint = i;
+                break;
+            };
+        };
+        let usefulColumns = [];
+        let standards = [];
+        //this finds only the columns with final scores
+        for (let i = startPoint; i < endPoint; i++){ 
+            let celli = dataArray[0][i];
+            if (celli.includes("Final Score") && !celli.includes("Unposted Final Score")){
+                usefulColumns.push(i);
+                //this is setting up for later
+                standards.push(celli.replace(" Final Score", ""));
+            };
+        };
+        
+        //this is the first row with a student 
+        const firstStudentRow = 2;
+        let studentEnd = dataArray.length;
+        //this loop finds the last useful row
+        for (let i = firstStudentRow; i<dataArray.length; i++){
+            if (dataArray[i][0] == ""){
+                studentEnd = i;
+                break;
+            };
+        };
+
+        let studentList = [];
+
+        //Nueva does a grading system with a max of 4
+        rubricMax = 4;
+        //Where you round, i.e. a rubric score of 3.8654 with a decimal amount of 2 would become 3.87
+        decimalAmount = 1;
+        for (let z = firstStudentRow; z < studentEnd; z++){
+            let studentName = dataArray[z][0];
+            let individualDictionary = {};
+            for (let i = 0; i < usefulColumns.length; i++){ 
+                let celli = dataArray[z][usefulColumns[i]];
+                //this will make sure that if no number is given, we get a 0 and not a NaN
+                let floatCelli = parseFloat(celli) || 0;
+                //these values are weridly in percentages so a 4 would be written as 100 and a 3 as 75
+                
+                let score = rubricMax*(floatCelli/100).toFixed(decimalAmount);
+                let standard = standards[i];
+                individualDictionary[standard] = score;
+
+            };
+            studentList.push([studentName, individualDictionary]);
+        };
+        
+
+        //A list that allows you to access each student's rubric score for each standard with the notation studentList[index][0:Name, 1:Dictionary["StandardName"]]
+        return studentList;
+    } catch(error){
+        console.error("Error in sorting data", error);
+        throw error;
+
+    };
+};
+//this function creates a copy link for the example rubric, but akso requests an API authentication token for google sheets API access. Note you need to be on a non-Nueva account to have this work.
 const copySpreadsheet = async (spreadsheetId, newName) => {
-    console.log("AHHHH");
+  
     try {
         console.log("Getting auth token...");
         console.log("Spreadsheet ID:", spreadsheetId);
