@@ -1,5 +1,3 @@
-const { resolve } = require("path");
-
 (() => {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === 'GRADEBOOK_LOADED') {
@@ -82,24 +80,36 @@ const { resolve } = require("path");
                     if (chrome.runtime.lastError) {
                         reject(new Error(chrome.runtime.lastError.message));
                     } else if (response && response.success) {
-                        resolve(response.data);
+                        resolve(response);
                     } else {
                         reject(new Error(response ? response.error : "Unknown error"));
                     }}
                 );
             });
-            console.log(studentData[0])
-            const rubricFormatURL = await getRubricFormatURL();
-            console.log(rubricFormatURL)
-            // window.open(rubricFormatURL, '_blank');
-            // const sheetInfo = await new Promise((resolve, reject) => {
-            //     chrome.runtime.sendMessage({
-            //         type: "getSheetInfo",
-            //     })
-            // })
+
+            const newSheetId = await getRubricSheet();
+            url = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({ 
+                    type: "formatTheRubrics",
+                    data: studentData.data,
+                    standards: studentData.standards,
+                    id: newSheetId
+
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else if (response && response.success) {
+                        resolve(response.url);
+                    } else {
+                        reject(new Error(response ? response.error : "Unknown error"));
+                    }}
+                );
+            });
+            console.log(url);
+            window.open(url, '_blank');
            
             // downloadCsv(csvContent, 'test.csv');
-            alert("Rubrics formatted and downloaded successfully!");
+            alert("Rubrics formatted and sent to sheet successfully!");
             
         } catch (error) {
             console.error("Error processing rubrics:", error);
@@ -111,7 +121,7 @@ const { resolve } = require("path");
     };
 
 
-    const getRubricFormatURL = async () => {
+    const getRubricSheet = async () => {
         //@TODO: update the message to be more specific
         
         const userInput = window.prompt("Please enter a Google Sheets link or spreadsheet ID:");
@@ -154,7 +164,7 @@ const { resolve } = require("path");
                     if (chrome.runtime.lastError) {
                         reject(new Error(chrome.runtime.lastError.message));
                     } else if (response.success) {
-                        resolve(response.url);
+                        resolve(response.id);
                     } else {
                         reject(new Error(response.error));
                     }
