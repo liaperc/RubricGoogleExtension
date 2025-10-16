@@ -9,6 +9,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     };
 });
 
+//listener for messages from content.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     //this request attempts to retrieve the CSV for the gradebook using the download link produced by Canvas
     if (request.action === 'fetchCSV') {
@@ -64,6 +65,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
         
     }
+    //this will get the test csv file
     if (request.type === "getTestCSV"){
         fetch(chrome.runtime.getURL("data/testRubric.csv"))
         .then(response => response.text())
@@ -78,6 +80,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true;
     }
+    //this runs the code to push the data to the newly made sheet
     if (request.type === "formatTheRubrics"){
         formatRubrics(request.standards, request.data, request.id)
         .then(response => {

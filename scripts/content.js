@@ -5,6 +5,7 @@
         }
     });
 
+
     const addButton = () => {
         // Check if button already exists
         if (document.getElementById("rubric-button")) return;
@@ -26,6 +27,7 @@
         container.appendChild(rubricButton);
     };
 
+//this function simply calls the background script with a request to get the CSV from the person's computer because you cannot do that in the webpage.
     const fetchViaBackground = (url) => {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage({
@@ -51,7 +53,7 @@
         
         try {
             //the following will get the CSV from canvas if testCSV = false, but for testing purposes I have a seperate CSV
-            testCSV = true
+            testCSV = false
             let csvContent
             if (!testCSV){
                 csvContent = await getCSVContent();
@@ -120,11 +122,11 @@
         }
     };
 
-
+    //this makes the prompt window to ask for the link to the rubric format example. Then sends the data of this spreadsheet to the background to make the new sheet.
     const getRubricSheet = async () => {
         //@TODO: update the message to be more specific
         
-        const userInput = window.prompt("Please enter a Google Sheets link or spreadsheet ID:");
+        const userInput = window.prompt("Please enter a Google Sheets link with the desired format :");
         
         if (!userInput) {
             throw new Error("No link provided");
@@ -172,6 +174,8 @@
             );
         });
     };
+
+    //gets the CSV through canvas API
     const getCSVContent = async () => {
         
         const courseId = window.location.pathname.match(/\/courses\/(\d+)/)?.[1];
@@ -216,7 +220,7 @@
         // Fetch CSV content via background script
         return await fetchViaBackground(csvUrl);
     };
-
+    //This attempts to trigger the download of the csv from canvas and tries to catch it.
     const pollForCSVUrl = async (progressId, csrfToken, attachmentId) => {
         const maxPolls = 30;
         let pollCount = 0;
@@ -263,7 +267,7 @@
         
         throw new Error("Timed out waiting for export to complete");
     };
-
+//this is a testing function to download the csv
     const downloadCsv = (csvContent, filename) => {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
