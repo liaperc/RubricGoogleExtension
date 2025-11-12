@@ -48,7 +48,7 @@
     const buttonClicked = async () => {
         const button = document.getElementById("rubric-button");
         const originalText = button.innerText;
-        button.disabled = true;
+        button.disabled = false;
         button.innerText = "Loading...";
         
         try {
