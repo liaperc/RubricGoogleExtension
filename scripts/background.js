@@ -319,6 +319,11 @@ const formatRubrics = async (standards, studentData, id) => {
                 console.log(`Writing ${updates.length} values for ${student[0]}`);
                 await sheets.batchUpdate(updates);
             }
+            
+            // Add delay to avoid rate limiting (Google Sheets allows ~100 requests per 100 seconds per user)
+            if (i < studentData.length - 1) { // Don't delay after the last student
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+            }
         }
         
         const newUrl = `https://docs.google.com/spreadsheets/d/${id}/edit`;
@@ -616,4 +621,3 @@ class SheetsAPI {
         return await this.writeRange(range, [[value]]);
     }
   }
-  
