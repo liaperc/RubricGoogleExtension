@@ -53,7 +53,7 @@
         
         try {
             //the following will get the CSV from canvas if testCSV = false, but for testing purposes I have a seperate CSV
-            testCSV = false
+            testCSV = true
             let csvContent
             if (!testCSV){
                 csvContent = await getCSVContent();
@@ -124,7 +124,6 @@
 
     //this makes the prompt window to ask for the link to the rubric format example. Then sends the data of this spreadsheet to the background to make the new sheet.
     const getRubricSheet = async () => {
-        //@TODO: update the message to be more specific
         
         const userInput = window.prompt("Please enter a Google Sheets link with the desired format :");
         
@@ -181,7 +180,7 @@
         const courseId = window.location.pathname.match(/\/courses\/(\d+)/)?.[1];
         if (!courseId) throw new Error("Could not determine course ID");
         
-        // Enhanced CSRF token detection
+        //CSRF token detection
         let csrfToken = document.querySelector('input[name="authenticity_token"]')?.value;
         
         console.log('CSRF Token found:', csrfToken ? 'Yes' : 'No');
