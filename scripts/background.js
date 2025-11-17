@@ -67,7 +67,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     //this will get the test csv file
     if (request.type === "getTestCSV"){
-        fetch(chrome.runtime.getURL("data/testRubric.csv"))
+      //this can be changed to the shorter csv if wanted
+        fetch(chrome.runtime.getURL("data/longTestRubric - testRubric.csv"))
         .then(response => response.text())
         .then(testCSV => {
             sendResponse({success: true, data: testCSV});
@@ -156,7 +157,7 @@ const sortData = (data) => {
 
         //Nueva does a grading system with a max of 4
         rubricMax = 4;
-        //Where you round, i.e. a rubric score of 3.8654 with a decimal amount of 2 would become 3.87
+        //Where you round, e.g. a rubric score of 3.8654 with a decimal amount of 2 would become 3.87
         decimalAmount = 1;
         for (let z = firstStudentRow; z < studentEnd; z++){
             let studentName = dataArray[z][0];
@@ -249,7 +250,7 @@ const copySpreadsheet = async (spreadsheetId, newName) => {
 };
 
 const formatRubrics = async (standards, studentData, id) => {
-    try{
+    try {
         const token = await new Promise((resolve, reject) => {
             chrome.identity.getAuthToken({ interactive: false }, (token) => {
                 if (chrome.runtime.lastError) {
@@ -265,8 +266,6 @@ const formatRubrics = async (standards, studentData, id) => {
                 }
             });
         });
-        console.log("standards: ", standards);
-        console.log("student data", studentData);
 
         sheets = new SheetsAPI(id, token);
         const bounds = await sheets.getDataBounds('Sheet1');
@@ -292,14 +291,29 @@ const formatRubrics = async (standards, studentData, id) => {
         });
         
         console.log(`Found ${foundStandards.length} out of ${standards.length} standards`);
-        console.log("Found Standards: ", foundStandards);
         
-        // Create tabs and write data - BATCH ALL WRITES
+        // More aggressive batching now that we have rate limiting
+        const batchSize = 20; 
+        const allTabs = [];
+
+        for (let i = 0; i < studentData.length; i += batchSize) {
+            const batch = studentData.slice(i, i + batchSize);
+            const batchPromises = batch.map(student => 
+                sheets.duplicateSheetByTitle('Sheet1', student[0])
+            );
+            
+            const batchTabs = await Promise.all(batchPromises);
+            allTabs.push(...batchTabs);
+            
+            const usage = rateLimiter.getUsageInfo();
+            console.log(`Created batch ${Math.floor(i/batchSize) + 1}, API usage: ${usage.percentage}%`);
+        }
+
+        // Write data to all tabs with minimal delays
         for (let i = 0; i < studentData.length; i++){
             const student = studentData[i];
-            const newTab = await sheets.duplicateSheetByTitle('Sheet1', student[0]);
+            const newTab = allTabs[i];
             
-            // Prepare all updates for this student in one batch
             const updates = [];
             
             for (let z = 0; z < foundStandards.length; z++){
@@ -314,17 +328,23 @@ const formatRubrics = async (standards, studentData, id) => {
                 });
             }
             
-            // Write all updates at once using batchUpdate
             if (updates.length > 0) {
                 console.log(`Writing ${updates.length} values for ${student[0]}`);
                 await sheets.batchUpdate(updates);
             }
             
-            // Add delay to avoid rate limiting (Google Sheets allows ~100 requests per 100 seconds per user)
-            if (i < studentData.length - 1) { // Don't delay after the last student
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+            // Show progress
+            if (i % 10 === 0) {
+                const usage = rateLimiter.getUsageInfo();
+                console.log(`Progress: ${i}/${studentData.length} students, API usage: ${usage.percentage}%`);
             }
         }
+        
+        // NEW: Reorder sheets to match original student order
+        console.log("Reordering sheets to match student list order...");
+        const desiredOrder = ['Sheet1', ...studentData.map(student => student[0])];
+        await sheets.reorderSheets(desiredOrder);
+        console.log("Sheet reordering complete!");
         
         const newUrl = `https://docs.google.com/spreadsheets/d/${id}/edit`;
         return newUrl;
@@ -337,35 +357,54 @@ const formatRubrics = async (standards, studentData, id) => {
 
 class SheetsAPI {
     constructor(sheetId, authToken) {
-      this.sheetId = sheetId;
-      this.authToken = authToken;
-      this.baseUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
+        this.sheetId = sheetId;
+        this.authToken = authToken;
+        this.baseUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
     }
-  
-    // Helper method to make API requests
+
+    // Helper method to make API requests with rate limiting
     async request(endpoint, options = {}) {
-      const url = `${this.baseUrl}${endpoint}`;
-      const defaultOptions = {
-        headers: {
-          'Authorization': `Bearer ${this.authToken}`,
-          'Content-Type': 'application/json'
-        }
-      };
-  
-      try {
-        const response = await fetch(url, { ...defaultOptions, ...options });
+        // Wait if we're approaching the rate limit
+        await rateLimiter.waitIfNeeded();
         
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(`Sheets API Error: ${error.error.message}`);
-        }
+        const usage = rateLimiter.getUsageInfo();
+        console.log(`API Usage: ${usage.current}/${usage.max} (${usage.percentage}%)`);
         
-        return await response.json();
-      } catch (error) {
-        console.error('Sheets API request failed:', error);
-        throw error;
-      }
+        const url = `${this.baseUrl}${endpoint}`;
+        const defaultOptions = {
+            headers: {
+                'Authorization': `Bearer ${this.authToken}`,
+                'Content-Type': 'application/json'
+            }
+        };
+
+        try {
+            const response = await fetch(url, { ...defaultOptions, ...options });
+            
+            if (!response.ok) {
+                // Handle rate limit errors specifically
+                if (response.status === 429) {
+                    const retryAfter = response.headers.get('Retry-After');
+                    const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 60000;
+                    console.log(`429 Rate Limited! Waiting ${waitTime}ms`);
+                    
+                    // Reset our rate limiter state since we hit the actual limit
+                    this.requests = [];
+                    
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    return this.request(endpoint, options); // Retry
+                }
+                
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('API request failed:', error);
+            throw error;
+        }
     }
+
     async getSpreadsheetWithFormatting(ranges = []) {
         let url = '?includeGridData=true';
         if (ranges.length > 0) {
@@ -620,4 +659,122 @@ class SheetsAPI {
         const range = `${sheetName}!${colLetter}${row}`;
         return await this.writeRange(range, [[value]]);
     }
+
+    // Reorder sheets to match a specific order
+    async reorderSheets(desiredOrder) {
+        const info = await this.getSpreadsheetInfo();
+        const currentSheets = info.sheets.map(sheet => ({
+            sheetId: sheet.properties.sheetId,
+            title: sheet.properties.title,
+            currentIndex: sheet.properties.index
+        }));
+
+        const requests = [];
+        
+        // Create move requests for each sheet to match desired order
+        desiredOrder.forEach((desiredTitle, targetIndex) => {
+            const sheet = currentSheets.find(s => s.title === desiredTitle);
+            if (sheet && sheet.currentIndex !== targetIndex) {
+                requests.push({
+                    updateSheetProperties: {
+                        properties: {
+                            sheetId: sheet.sheetId,
+                            index: targetIndex
+                        },
+                        fields: 'index'
+                    }
+                });
+            }
+        });
+
+        if (requests.length > 0) {
+            console.log(`Reordering ${requests.length} sheets...`);
+            await this.request(':batchUpdate', {
+                method: 'POST',
+                body: JSON.stringify({ requests })
+            });
+        }
+    }
+
+    // Reorder sheets alphabetically
+    async reorderSheetsAlphabetically() {
+        const info = await this.getSpreadsheetInfo();
+        const sheetTitles = info.sheets
+            .map(sheet => sheet.properties.title)
+            .sort(); // Alphabetical sort
+        
+        await this.reorderSheets(sheetTitles);
+    }
   }
+
+class RateLimiter {
+    constructor(maxRequests = 90, timeWindow = 100000) {
+        this.maxRequests = maxRequests;
+        this.timeWindow = timeWindow;
+        this.requests = [];
+        this.waitingQueue = []; // Queue for requests waiting to proceed
+        this.isProcessing = false; // Mutex lock
+    }
+
+    async waitIfNeeded() {
+        // Add this request to the queue and wait for its turn
+        return new Promise((resolve) => {
+            this.waitingQueue.push(resolve);
+            this.processQueue();
+        });
+    }
+
+    async processQueue() {
+        // If already processing, let the current process handle the queue
+        if (this.isProcessing) {
+            return;
+        }
+
+        this.isProcessing = true;
+
+        while (this.waitingQueue.length > 0) {
+            const now = Date.now();
+            
+            // Remove requests older than our time window
+            this.requests = this.requests.filter(timestamp => 
+                now - timestamp < this.timeWindow
+            );
+
+            // If we're at the limit, wait until the oldest request expires
+            if (this.requests.length >= this.maxRequests) {
+                const oldestRequest = Math.min(...this.requests);
+                const waitTime = this.timeWindow - (now - oldestRequest) + 100;
+                
+                console.log(`Rate limit approaching, waiting ${waitTime}ms (Queue: ${this.waitingQueue.length})`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+                continue; // Check again after waiting
+            }
+
+            // Process the next request in queue
+            const resolve = this.waitingQueue.shift();
+            this.requests.push(Date.now());
+            resolve();
+        }
+
+        this.isProcessing = false;
+    }
+
+    getUsageInfo() {
+        const now = Date.now();
+        const recentRequests = this.requests.filter(timestamp => 
+            now - timestamp < this.timeWindow
+        );
+        
+        return {
+            current: recentRequests.length,
+            max: this.maxRequests,
+            percentage: (recentRequests.length / this.maxRequests * 100).toFixed(1),
+            timeUntilReset: this.requests.length > 0 ? 
+                Math.max(0, this.timeWindow - (now - Math.min(...this.requests))) : 0,
+            queueLength: this.waitingQueue.length
+        };
+    }
+}
+
+// Create global rate limiter instance
+const rateLimiter = new RateLimiter();
