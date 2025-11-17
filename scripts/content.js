@@ -125,7 +125,7 @@
     //this makes the prompt window to ask for the link to the rubric format example. Then sends the data of this spreadsheet to the background to make the new sheet.
     const getRubricSheet = async () => {
         
-        const userInput = window.prompt("Please enter a Google Sheets link with the desired format :");
+        const userInput = window.prompt("Please enter a Google Sheets link with an example of the rubric format you want:");
         
         if (!userInput) {
             throw new Error("No link provided");
@@ -150,7 +150,7 @@
         }
         
         // Prompt for new name
-        const newName = window.prompt("Enter a name for the copy:", "Rubric Copy");
+        const newName = window.prompt("Enter a name for the google sheet that will have your students formatted rubrics:", "Student Rubrics");
         if (!newName) {
             throw new Error("No name provided");
         }
