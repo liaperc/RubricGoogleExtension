@@ -712,51 +712,85 @@ class RateLimiter {
         this.maxRequests = maxRequests;
         this.timeWindow = timeWindow;
         this.requests = [];
-        this.waitingQueue = []; // Queue for requests waiting to proceed
-        this.isProcessing = false; // Mutex lock
+        this.waitingQueue = [];
+        this.isProcessing = false;
+        this.processingPromise = null; // Track the current processing promise
     }
 
     async waitIfNeeded() {
+        console.log(`[RateLimiter] Request queued. Queue length: ${this.waitingQueue.length + 1}`);
+        
         // Add this request to the queue and wait for its turn
         return new Promise((resolve) => {
-            this.waitingQueue.push(resolve);
-            this.processQueue();
+            this.waitingQueue.push({
+                resolve,
+                timestamp: Date.now(),
+                id: Math.random().toString(36).substr(2, 9)
+            });
+            console.log(`[RateLimiter] Request ${this.waitingQueue[this.waitingQueue.length - 1].id} added to queue`);
+            
+            // Start processing if not already processing
+            if (!this.isProcessing) {
+                this.processQueue();
+            }
         });
     }
 
     async processQueue() {
-        // If already processing, let the current process handle the queue
+        // If already processing, wait for the current processing to finish
         if (this.isProcessing) {
+            console.log(`[RateLimiter] Already processing, waiting for current process to finish`);
+            if (this.processingPromise) {
+                await this.processingPromise;
+            }
             return;
         }
 
+        console.log(`[RateLimiter] Starting queue processing. Queue length: ${this.waitingQueue.length}`);
         this.isProcessing = true;
+        
+        // Create a promise that resolves when processing is complete
+        this.processingPromise = this._processQueueInternal();
+        await this.processingPromise;
+        
+        this.isProcessing = false;
+        this.processingPromise = null;
+        console.log(`[RateLimiter] Queue processing completed`);
+    }
 
+    async _processQueueInternal() {
         while (this.waitingQueue.length > 0) {
             const now = Date.now();
             
             // Remove requests older than our time window
+            const oldRequestCount = this.requests.length;
             this.requests = this.requests.filter(timestamp => 
                 now - timestamp < this.timeWindow
             );
+            
+            if (oldRequestCount !== this.requests.length) {
+                console.log(`[RateLimiter] Cleaned ${oldRequestCount - this.requests.length} old requests`);
+            }
+
+            console.log(`[RateLimiter] Current usage: ${this.requests.length}/${this.maxRequests} (${(this.requests.length / this.maxRequests * 100).toFixed(1)}%)`);
 
             // If we're at the limit, wait until the oldest request expires
             if (this.requests.length >= this.maxRequests) {
                 const oldestRequest = Math.min(...this.requests);
                 const waitTime = this.timeWindow - (now - oldestRequest) + 100;
                 
-                console.log(`Rate limit approaching, waiting ${waitTime}ms (Queue: ${this.waitingQueue.length})`);
+                console.log(`[RateLimiter] Rate limit reached! Waiting ${waitTime}ms (Queue: ${this.waitingQueue.length})`);
                 await new Promise(resolve => setTimeout(resolve, waitTime));
                 continue; // Check again after waiting
             }
 
             // Process the next request in queue
-            const resolve = this.waitingQueue.shift();
+            const requestInfo = this.waitingQueue.shift();
             this.requests.push(Date.now());
-            resolve();
+            
+            console.log(`[RateLimiter] Processing request ${requestInfo.id}. New usage: ${this.requests.length}/${this.maxRequests}`);
+            requestInfo.resolve();
         }
-
-        this.isProcessing = false;
     }
 
     getUsageInfo() {
