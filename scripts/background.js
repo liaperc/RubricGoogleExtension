@@ -132,17 +132,17 @@ const sortData = (data) => {
         //this finds only the columns with final scores
         for (let i = startPoint; i < endPoint; i++){ 
             let celli = dataArray[0][i];
-            if (celli.includes("Final Score") && !celli.includes("Unposted Final Score")){
+            if (celli.includes("Current Score") && !celli.includes("Unposted Current Score")){
                 usefulColumns.push(i);
                 //this is setting up for later
-                standard = celli.replace("Final Score", "").trim();
+                standard = celli.replace("Current Score", "").trim();
                 standards.push(standard);
             };
         };
         
         
         //this is the first row with a student 
-        const firstStudentRow = 2;
+        const firstStudentRow = 2; //TODO make this more dynamic because johns listed points possible as a student
         //autoset to last row
         let studentEnd = dataArray.length;
         //this loop finds the last useful row
@@ -452,29 +452,29 @@ class SheetsAPI {
         return result;
     };
     
-    // Check if a specific cell is bolded
-    async isCellBold(sheetName, row, col) {
-        const colLetter = this.columnIndexToLetter(col - 1);
-        const range = `${sheetName}!${colLetter}${row}`;
+  // Check if a specific cell is bolded
+  async isCellBold(sheetName, row, col) {
+      const colLetter = this.columnIndexToLetter(col - 1);
+      const range = `${sheetName}!${colLetter}${row}`;
         
-        const data = await this.getSpreadsheetWithFormatting([range]);
+      const data = await this.getSpreadsheetWithFormatting([range]);
         
-        if (!data.sheets || data.sheets.length === 0) {
-          return false;
-        }
+      if (!data.sheets || data.sheets.length === 0) {
+        return false;
+      }
         
-        const sheet = data.sheets[0];
-        if (!sheet.data || !sheet.data[0] || !sheet.data[0].rowData) {
-          return false;
-        }
+      const sheet = data.sheets[0];
+      if (!sheet.data || !sheet.data[0] || !sheet.data[0].rowData) {
+        return false;
+      }
         
-        const rowData = sheet.data[0].rowData[0];
-        if (!rowData.values || !rowData.values[0]) {
-          return false;
-        }
+      const rowData = sheet.data[0].rowData[0];
+      if (!rowData.values || !rowData.values[0]) {
+        return false;
+      }
         
-        const cellData = rowData.values[0];
-        return cellData.effectiveFormat?.textFormat?.bold || false;
+      const cellData = rowData.values[0];
+      return cellData.effectiveFormat?.textFormat?.bold || false;
     }
   
     // Get spreadsheet metadata
