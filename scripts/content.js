@@ -58,7 +58,7 @@
             if (!testCSV){
                 csvContent = await getCSVContent();
             } else {
-                //this literally just pulls the "testRubric.csv" from the files
+                //this just pulls the testCSV from the files
                 csvContent = await new Promise((resolve,reject) => {
                     chrome.runtime.sendMessage({
                         type: "getTestCSV"
@@ -73,7 +73,6 @@
                     });
                 });
             };
-                
             const studentData = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage({ 
                     type: "sortData",
@@ -88,7 +87,6 @@
                     }}
                 );
             });
-
             const newSheetId = await getRubricSheet();
             url = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage({ 

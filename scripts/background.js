@@ -67,8 +67,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     //this will get the test csv file
     if (request.type === "getTestCSV"){
-      //this can be changed to the shorter csv if wanted
-        fetch(chrome.runtime.getURL("data/longTestRubric - testRubric.csv"))
+        //this can be changed to a different csv if wanted (either "data/longTestRubric - testRubric.csv" or "data/testRubric.csv" or "data/betterTestRubric.csv")
+        fetch(chrome.runtime.getURL("data/betterTestRubric.csv"))
         .then(response => response.text())
         .then(testCSV => {
             sendResponse({success: true, data: testCSV});
@@ -107,14 +107,23 @@ const sortData = (data) => {
             header: false,
             skipEmptyLines: true,
             dynamicTyping: true
-        }).data;
-          
+        }).data; 
+        //this is the first row with a student 
+        let firstStudentRow = false; //TODO make this more dynamic because johns listed points possible as a student
+        //last row
+        let studentEnd = dataArray.length;
+        //this loop finds the last useful row
+        for (let i = 0; i<dataArray.length; i++){
+            if ((dataArray[i][0]) && (dataArray[i][0]).includes("Points Possible")){
+                firstStudentRow = i+1;
+            };
+        };
 
         let startPoint = 0;
         let endPoint = 0;
         //starting and ending points for columns of rubric standards
         for (let i = 0; i < dataArray[0].length; i++){ 
-            let celli = dataArray[1][i];
+            let celli = dataArray[firstStudentRow-1][i];
             let cellii = dataArray[0][i];
 
             //this is where useful info begins
@@ -122,7 +131,7 @@ const sortData = (data) => {
                 startPoint = i;
             };
             //this is where the useful info ends
-            if (cellii == "Current Score" && endPoint == 0){
+            if ((cellii == "Current Score" || cellii == "Current Points") && endPoint == 0){
                 endPoint = i;
                 break;
             };
@@ -132,26 +141,16 @@ const sortData = (data) => {
         //this finds only the columns with final scores
         for (let i = startPoint; i < endPoint; i++){ 
             let celli = dataArray[0][i];
-            if (celli.includes("Current Score") && !celli.includes("Unposted Current Score")){
+            if (celli.includes("Unposted Current Score")){
                 usefulColumns.push(i);
                 //this is setting up for later
-                standard = celli.replace("Current Score", "").trim();
+                let standard = celli.replace("Unposted Current Score", "").trim();
                 standards.push(standard);
             };
         };
         
         
-        //this is the first row with a student 
-        const firstStudentRow = 2; //TODO make this more dynamic because johns listed points possible as a student
-        //autoset to last row
-        let studentEnd = dataArray.length;
-        //this loop finds the last useful row
-        for (let i = firstStudentRow; i<dataArray.length; i++){
-            if (dataArray[i][0] == "" || !dataArray[i][0]){
-                studentEnd = i;
-                break;
-            };
-        };
+        
 
         let studentList = [];
 
@@ -161,6 +160,8 @@ const sortData = (data) => {
         decimalAmount = 1;
         for (let z = firstStudentRow; z < studentEnd; z++){
             let studentName = dataArray[z][0];
+            let studentId = dataArray[z][1];
+            studentName += ` (${studentId})` //this is in case of duplicate names because google sheets doesn't allow duplicates
  
             let individualDictionary = {};
             for (let i = 0; i < usefulColumns.length; i++){ 
@@ -170,7 +171,6 @@ const sortData = (data) => {
                 //these values are weridly in percentages so a 4 would be written as 100 and a 3 as 75
                 let score = (rubricMax*(celli/100)).toFixed(decimalAmount);
                 let standard = standards[i];
-                console.log("score type, ", typeof score)
                 individualDictionary[standard] = score;
                 
 
