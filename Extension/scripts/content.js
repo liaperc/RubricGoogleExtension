@@ -53,7 +53,7 @@
         
         try {
             //the following will get the CSV from canvas if testCSV = false, but for testing purposes I have a seperate CSV
-            testCSV = false
+            testCSV = true
             let csvContent
             if (!testCSV){
                 csvContent = await getCSVContent();
