@@ -1,106 +1,6 @@
-//for CSV parsing
-importScripts("../libraries/papaparse.min.js");
-
-
-//primary listener to listen for when the gradebook on Canvas is opened
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url && tab.url.includes('instructure.com') && tab.url.includes('gradebook')) {
-        chrome.tabs.sendMessage(tabId, {type: 'GRADEBOOK_LOADED'});
-    };
-});
-
-//listener for messages from content.js
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    //this request attempts to retrieve the CSV for the gradebook using the download link produced by Canvas
-    if (request.action === 'fetchCSV') {
-        console.log("Background script: Fetching CSV from", request.url);
-        
-        fetch(request.url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-                }
-                return response.text();
-            })
-            .then(data => {
-                console.log("Background script: CSV fetched successfully, length:", data.length);
-                sendResponse({
-                    success: true,
-                    data: data
-                });
-            })
-            .catch(error => {
-                console.error("Background script: Error fetching CSV:", error);
-                sendResponse({
-                    success: false,
-                    error: error.message
-                });
-            });
-        
-        return true;
-    }
-    //This generates a copy link to copy the spreadsheet
-    if (request.type === "COPY_SPREADSHEET") {
-        copySpreadsheet(request.spreadsheetId, request.newName)
-            .then(response => {
-                sendResponse({ success: true, id: response});
-            })
-            .catch(error => {
-                console.error("Copy failed:", error);
-                sendResponse({ success: false, error: error.message });
-            });
-        
-        return true;
-    }
-    //this calls the function to sort the CSV data
-    if (request.type === "sortData"){
-        
-        try{
-            const sortedData = sortData(request.data)
-            sendResponse({ success: true, data: sortedData.studentData, standards: sortedData.standardData });
-        } catch(error) {
-            console.error("Failed to parse rubric data:", error);
-            sendResponse({ success: false, error: error.message });
-        }
-        return true;
-        
-    }
-    //this will get the test csv file
-    if (request.type === "getTestCSV"){
-        //this can be changed to a different csv if wanted (either "data/longTestRubric - testRubric.csv" or "data/testRubric.csv" or "data/betterTestRubric.csv")
-        fetch(chrome.runtime.getURL("data/betterTestRubric.csv"))
-        .then(response => response.text())
-        .then(testCSV => {
-            sendResponse({success: true, data: testCSV});
-        }).catch(error => {
-            console.error("Background script: Error fetching test CSV:", error);
-            sendResponse({
-                success: false,
-                error: error.message
-            });
-        });
-        return true;
-    }
-    //this runs the code to push the data to the newly made sheet
-    if (request.type === "formatTheRubrics"){
-        formatRubrics(request.standards, request.data, request.id)
-        .then(response => {
-            sendResponse({success: true, url: response});
-        }).catch(error => {
-            console.error("Background script: error formatting", error);
-            sendResponse({
-                success: false,
-                error: error.message
-            });
-        });
-        return true
-    }
-    return false
-});
-
-
+import Papa from 'papaparse';
 //returns a list of lists of length 2 in the format [Student Name, Dictionary]. The using the dictionary you can reference a standard by Dictionary["Standard Name"] and it will give you the score for the student. 
-const sortData = (data) => {
+export const sortData = (data) => {
     try{
         //row will be the first value and column will be the second
         const dataArray = Papa.parse(data, {
@@ -155,9 +55,9 @@ const sortData = (data) => {
         let studentList = [];
 
         //Nueva does a grading system with a max of 4
-        rubricMax = 4;
+        const rubricMax = 4;
         //Where you round, e.g. a rubric score of 3.8654 with a decimal amount of 2 would become 3.87
-        decimalAmount = 1;
+        const decimalAmount = 1;
         for (let z = firstStudentRow; z < studentEnd; z++){
             let studentName = dataArray[z][0];
             let studentId = dataArray[z][1];
@@ -189,7 +89,7 @@ const sortData = (data) => {
     };
 };
 //this function creates a copy link for the example rubric, but akso requests an API authentication token for google sheets API access. Note you need to be on a non-Nueva account to have this work.
-const copySpreadsheet = async (spreadsheetId, newName) => {
+export const copySpreadsheet = async (spreadsheetId, newName) => {
   
     try {
         console.log("Getting auth token...");
@@ -249,7 +149,7 @@ const copySpreadsheet = async (spreadsheetId, newName) => {
     }
 };
 
-const formatRubrics = async (standards, studentData, id) => {
+export const formatRubrics = async (standards, studentData, id) => {
     try {
         const token = await new Promise((resolve, reject) => {
             chrome.identity.getAuthToken({ interactive: false }, (token) => {
@@ -267,7 +167,7 @@ const formatRubrics = async (standards, studentData, id) => {
             });
         });
 
-        sheets = new SheetsAPI(id, token);
+        const sheets = new SheetsAPI(id, token);
         const bounds = await sheets.getDataBounds('Sheet1');
         
         // Get all cells with formatting data at once
@@ -355,7 +255,7 @@ const formatRubrics = async (standards, studentData, id) => {
     }
 };
 
-class SheetsAPI {
+export class SheetsAPI {
     constructor(sheetId, authToken) {
         this.sheetId = sheetId;
         this.authToken = authToken;

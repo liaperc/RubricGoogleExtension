@@ -1,9 +1,13 @@
-module.exports = {
+export default {
   testEnvironment: 'node',
-  testMatch: ['**/*.test.js'],
-  testTimeout: 30000,
-  verbose: true,
   transform: {
     '^.+\\.js$': 'babel-jest',
   },
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1'
+  },
+  testMatch: [
+    '**/tests/**/*.test.js'
+  ],
+  moduleFileExtensions: ['js'],
 };

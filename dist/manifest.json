@@ -1,0 +1,56 @@
+{
+  "name": "Nueva Canvas to Rubric Extension",
+  "version": "0.1.0",
+  "manifest_version": 3,
+  "description": "TBD",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "identity"
+  ],
+  "oauth2": {
+    "client_id": "936936943371-5rtqp2midjvldslchtftsk88esf5qlse.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive"
+    ]
+  },
+  "host_permissions": [
+    "https://*.instructure.com/*",
+    "https://*.canvas-user-content.com/*",
+    "https://www.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "service-worker-loader.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "js": [
+        "assets/content.js-CjDfMtwM.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "images/icon16.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "resources": [
+        "assets/content.js-CjDfMtwM.js"
+      ],
+      "use_dynamic_url": false
+    }
+  ]
+}
