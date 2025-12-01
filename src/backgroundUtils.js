@@ -607,7 +607,7 @@ export class SheetsAPI {
     }
   }
 
-class RateLimiter {
+export class RateLimiter {
     constructor(maxRequests = 90, timeWindow = 100000) {
         this.maxRequests = maxRequests;
         this.timeWindow = timeWindow;

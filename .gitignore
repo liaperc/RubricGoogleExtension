@@ -4,4 +4,8 @@ Extension.pem
 *.crx
 *.zip
 node_modules/
+coverage/
 coverage
+lcov.info
+*.lcov
+.nyc_output/

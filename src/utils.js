@@ -14,8 +14,9 @@ export const addButton = () => {
     rubricButton.style.border = "none";
     rubricButton.style.borderRadius = "3px";
     rubricButton.style.cursor = "pointer";
-    
-    rubricButton.onclick = buttonClicked;
+    //this boolean below is for testing with testCSV
+    //the following will get the CSV from canvas if testCSV = false, but for testing purposes I have a seperate CSV
+    rubricButton.onclick = () => buttonClicked(false);
     container.appendChild(rubricButton);
 };
 
@@ -37,15 +38,14 @@ export const fetchViaBackground = (url) => {
     });
 };
 
-export const buttonClicked = async () => {
+export const buttonClicked = async (testCSV) => {
     const button = document.getElementById("rubric-button");
     const originalText = button.innerText;
     button.disabled = false;
     button.innerText = "Loading...";
     
     try {
-        //the following will get the CSV from canvas if testCSV = false, but for testing purposes I have a seperate CSV
-        testCSV = true
+        
         let csvContent
         if (!testCSV){
             csvContent = await getCSVContent();

@@ -6,7 +6,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "jest"
+    "test": "jest --verbose",
+    "test:unit": "jest tests/utils.test.js",
+    "test:e2e": "npm run build && jest tests/ext.test.js"
   },
   "devDependencies": {
     "@babel/core": "^7.28.5",
