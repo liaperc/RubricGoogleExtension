@@ -2,6 +2,7 @@
     "name": "Nueva Canvas to Rubric Extension",
     "version": "0.1.0",
     "manifest_version": 3,
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqZsn9RnozDLE7KLdFDpykhNLcPMhXbSzyITvu2bfi1NxEZEG9dsXQcBDdAqmttIZe4v+gJ+VDY7exVWaeJDi4mkxOXhjyUKOskKJCvFbcKKogiQQ9S9lI4vsaYnRPhbJYUca2XEezDzJVZ10gAxkzQzypsp96OjChPa+RZ0NCz7ksSebfrfE4ZyEDDEiU2ak2U9X0RkxC4tYJAln6NhaYFDVRepvGK23/DZxF0ozFZXPJyWREfBFWm1wM9kbbl2q5taFQED5a46Uj8b2pVqCtmNN62uaUL7yuX+r2jROYIQsD1E4D1d+woCc9StSYpaMtVtRDbA5Lnort7Ek7N1bpwIDAQAB",
     "description": "TBD",
     "permissions": [
         "activeTab",
