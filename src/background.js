@@ -11,6 +11,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 //listener for messages from content.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log("Background script: Received message", request.type || request.action);
+    
     //this request attempts to retrieve the CSV for the gradebook using the download link produced by Canvas
     if (request.action === 'fetchCSV') {
         console.log("Background script: Fetching CSV from", request.url);
@@ -41,8 +43,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     //This generates a copy link to copy the spreadsheet
     if (request.type === "COPY_SPREADSHEET") {
+        console.log("Background script: Copying spreadsheet", request.spreadsheetId);
         utils.copySpreadsheet(request.spreadsheetId, request.newName)
             .then(response => {
+                console.log("Background script: Copy successful");
                 sendResponse({ success: true, id: response});
             })
             .catch(error => {
@@ -54,9 +58,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     //this calls the function to sort the CSV data
     if (request.type === "sortData"){
-        
+        console.log("Background script: Sorting CSV data");
         try{
             const sortedData = utils.sortData(request.data)
+            console.log("Background script: Sort successful, students:", sortedData.studentData.length);
             sendResponse({ success: true, data: sortedData.studentData, standards: sortedData.standardData });
         } catch(error) {
             console.error("Failed to parse rubric data:", error);
@@ -67,10 +72,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     //this will get the test csv file
     if (request.type === "getTestCSV"){
-        //this can be changed to a different csv if wanted (either "data/longTestRubric - testRubric.csv" or "data/testRubric.csv" or "data/betterTestRubric.csv")
+        console.log("Background script: Getting test CSV");
         fetch(chrome.runtime.getURL("data/betterTestRubric.csv"))
         .then(response => response.text())
         .then(testCSV => {
+            console.log("Background script: Test CSV fetched, length:", testCSV.length);
             sendResponse({success: true, data: testCSV});
         }).catch(error => {
             console.error("Background script: Error fetching test CSV:", error);
@@ -83,8 +89,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     //this runs the code to push the data to the newly made sheet
     if (request.type === "formatTheRubrics"){
+        console.log("Background script: Formatting rubrics");
         utils.formatRubrics(request.standards, request.data, request.id)
         .then(response => {
+            console.log("Background script: Formatting successful");
             sendResponse({success: true, url: response});
         }).catch(error => {
             console.error("Background script: error formatting", error);

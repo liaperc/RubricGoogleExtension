@@ -8,7 +8,7 @@
     "preview": "vite preview",
     "test": "jest --verbose",
     "test:unit": "jest tests/utils.test.js",
-    "test:e2e": "npm run build && jest tests/ext.test.js"
+    "test:e2e": "npm run build && jest tests/e2e.test.js"
   },
   "devDependencies": {
     "@babel/core": "^7.28.5",
