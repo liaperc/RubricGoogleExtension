@@ -9,8 +9,8 @@ After this is done, the chrome extension will open the new spreadsheet. This spr
 
 
 ## How to set up the extension
-#### 1. Instalation
-You will need to install the extension from github. Then you will go to <u>chrome://extensions</u>, enable developer mode on the top right, and click load unpacked. Then navigate to where you stored the git download. 
+#### 1. Installation
+You will need to install the extension from github. Then you will go to <u>chrome://extensions</u>, enable developer mode on the top right, and click load unpacked. Then navigate to where you stored the git download and load the "dist" file.
 
 #### 2. Google Cloud Requirements
 To run the chrome extension properly, please contact me so I can add you as a tester to google cloud. This is only necessary because I have yet to publish/verify the extension.
