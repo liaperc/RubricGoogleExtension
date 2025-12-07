@@ -32,6 +32,7 @@ Should be fine so long as you have access.
 5. Input desired name of formatted rubrics sheet.
 6. Wait a little bit of time. (Took less than a minute with 3 students and 33 standards)
 7. The sheet should now open
+8. Once you are happy with the output, you can press the rubric icon to open a popup. Here you can press a button to download each sheet seperately as a pdf for better uploading to the nexus.
 
 ## Limitations
 - Cannot be run on accounts either under 18 or designated by admin as under 18 due to sheets API requirements.
@@ -39,6 +40,6 @@ Should be fine so long as you have access.
 - Typos: Even the slightest difference between what canvas has and the example rubric has for standards can lead to errors.
 - Misreading: Rubrics are often seperated by groups of standards. The title of this group can be misinterpreted as a standard in itself sometimes. My current workaround is ignoring bolded text.
 - Specific Canvas Setup: This chrome extesnion only works for a specific canvas setup for grading that I was given.
-- Due to having a specific limit of sheets API requests per minute, in the edge case of a class greater than or equal to 99, my chrome extension will through an error.
+
 
 
