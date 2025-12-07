@@ -45,7 +45,7 @@ export const buttonClicked = async () => {
     
     try {
         //the following will get the CSV from canvas if testCSV = false, but for testing purposes I have a seperate CSV
-        testCSV = false
+        testCSV = true
         let csvContent
         if (!testCSV){
             csvContent = await getCSVContent();
@@ -139,8 +139,15 @@ export const getRubricSheet = async () => {
         throw new Error("Could not extract spreadsheet ID");
     }
     
-    // Prompt for new name
-    const newName = window.prompt("Enter a name for the google sheet that will have your students formatted rubrics:", "Student Rubrics");
+    // Get course name from the page - try multiple selectors
+    const courseName = document.querySelector('.mobile-header-title div')?.textContent?.trim() || 
+                       document.querySelector('.public')?.textContent?.trim() || 
+                       document.querySelector('#breadcrumbs li a')?.textContent?.trim() || 
+                       "Course";
+    
+    // Prompt for new name with course name as default
+    const defaultName = `${courseName} Rubrics`;
+    const newName = window.prompt("Enter a name for the google sheet that will have your students formatted rubrics:", defaultName);
     if (!newName) {
         throw new Error("No name provided");
     }
