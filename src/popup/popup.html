@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sheets Download Button</title>
+    <style>
+        body {
+            width: 300px;
+            padding: 15px;
+            font-family: Arial, sans-serif;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <button id="downloadPdfs">Download Sheet PDFs</button>
+    <div id="status"></div>
+    <script src="./popup.js" type="module"></script>
+</body>
+</html>

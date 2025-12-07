@@ -7,7 +7,8 @@
     "permissions": [
         "activeTab",
         "storage",
-        "identity"
+        "identity",
+        "downloads"
     ],
     "oauth2": {
         "client_id": "936936943371-5rtqp2midjvldslchtftsk88esf5qlse.apps.googleusercontent.com",
@@ -31,11 +32,12 @@
         }
     ],
     "action": {
+        "default_popup": "src/popup/popup.html",
         "default_icon": {
             "16": "images/icon16.png",
             "32": "images/icon32.png",
-            "48": "images/icon48.png",
-            "128": "images/icon128.png"
-        }
+            "48": "images/icon48.png"
+        },
+        "default_title": "Click to download all of the rubrics as pdfs"
     }
 }

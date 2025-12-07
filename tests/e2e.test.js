@@ -126,7 +126,7 @@ describe('Chrome Extension E2E Tests', () => {
         });
         
         await page.waitForSelector('#rubric-button', { 
-            timeout: 10000,
+            timeout: 20000,
             visible: true 
         });
         

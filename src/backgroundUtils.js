@@ -255,6 +255,134 @@ export const formatRubrics = async (standards, studentData, id) => {
     }
 };
 
+// Add global download state tracker
+let downloadInProgress = false;
+
+// Export status checker function
+export const isDownloadInProgress = () => downloadInProgress;
+
+// You'll need to install pdf-lib
+// Run: npm install pdf-lib
+
+import { PDFDocument } from 'pdf-lib';
+
+export const handleSheetPdfDownload = async (spreadsheetId, tabId) => {
+    // Check if a download is already in progress
+    if (downloadInProgress) {
+        throw new Error('A download is already in progress. Please wait for it to complete.');
+    }
+
+    try {
+        // Set flag to prevent concurrent downloads
+        downloadInProgress = true;
+
+        const token = await new Promise((resolve, reject) => {
+            chrome.identity.getAuthToken({ interactive: true }, (token) => {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                } else {
+                    resolve(token);
+                }
+            });
+        });
+        
+        // Use rate limiter for metadata fetch
+        await rateLimiter.waitIfNeeded();
+        
+        const metadataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
+        const metadataResponse = await fetch(metadataUrl, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!metadataResponse.ok) {
+            throw new Error(`Failed to fetch spreadsheet: ${metadataResponse.statusText}`);
+        }
+        
+        const metadata = await metadataResponse.json();
+        const spreadsheetTitle = metadata.properties.title;
+        const sheets = metadata.sheets;
+        
+        if (sheets.length === 0) {
+            throw new Error('No additional sheets to download');
+        }
+        
+        // Create timestamp-based folder to avoid conflicts
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const folderName = `${spreadsheetTitle}_${timestamp}`;
+        
+        console.log(`Downloading entire workbook as single PDF...`);
+        
+        // Download entire workbook as one PDF
+        // This URL downloads all sheets at once with portrait orientation and fit to page
+        const workbookPdfUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&portrait=true&size=letter&scale=4&fitw=true`;
+        
+        const pdfResponse = await fetch(workbookPdfUrl, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!pdfResponse.ok) {
+            throw new Error(`Failed to download workbook PDF: ${pdfResponse.status}`);
+        }
+        
+        console.log(`Workbook PDF downloaded, splitting into individual sheets...`);
+        
+        // Get PDF as array buffer
+        const pdfBytes = await pdfResponse.arrayBuffer();
+        
+        // Load the PDF document
+        const pdfDoc = await PDFDocument.load(pdfBytes);
+        
+        const totalPages = pdfDoc.getPageCount();
+        
+        console.log(`PDF has ${totalPages} pages for ${sheets.length} sheets`);
+        
+        //This for loop splits the larger download by page #. I start at i = 1 to avoid the example sheet
+        for (let i = 1; i < Math.min(totalPages, sheets.length); i++) {
+            const sheetTitle = sheets[i].properties.title;
+            
+            // Create a new PDF with just this page
+            const newPdf = await PDFDocument.create();
+            
+            const [page] = await newPdf.copyPages(pdfDoc, [i]);
+            newPdf.addPage(page);
+            
+            // Save as bytes
+            const pdfBytesOut = await newPdf.save();
+            
+            // Convert to blob then data URL
+            const blob = new Blob([pdfBytesOut], { type: 'application/pdf' });
+            const reader = new FileReader();
+            
+            const dataUrl = await new Promise((resolve) => {
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+            
+            // Download the individual PDF
+            await chrome.downloads.download({
+                url: dataUrl,
+                filename: `${folderName}/${sheetTitle}.pdf`,
+                conflictAction: 'uniquify',
+                saveAs: false
+            });
+            
+            
+        }
+
+        console.log(`Download complete: ${sheets.length - 1} PDFs created from workbook`);
+        return {count: sheets.length, failed: 0 };
+
+    } finally {
+        // Always reset the flag when done
+        downloadInProgress = false;
+        console.log('Download session ended. Ready for new downloads.');
+    }
+}
+
 export class SheetsAPI {
     constructor(sheetId, authToken) {
         this.sheetId = sheetId;
@@ -564,7 +692,7 @@ export class SheetsAPI {
     async reorderSheets(desiredOrder) {
         const info = await this.getSpreadsheetInfo();
         const currentSheets = info.sheets.map(sheet => ({
-            sheetId: sheet.properties.sheetId,
+            sheetId: sheet.sheetId,
             title: sheet.properties.title,
             currentIndex: sheet.properties.index
         }));

@@ -103,6 +103,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true
     }
+    // Check download status
+    if (request.type === 'checkDownloadStatus') {
+        // Import the download status from backgroundUtils
+        const isDownloading = utils.isDownloadInProgress();
+        sendResponse({ isDownloading });
+        return true;
+    }
+    if (request.type === "downloadSheetPdfs") {
+        console.log("Background script: Starting PDF downloads", request.spreadsheetId);
+        utils.handleSheetPdfDownload(request.spreadsheetId, request.tabId)
+            .then(response => {
+                console.log("Background script: Download successful", response);
+                sendResponse({ success: true, count: response.count, failed: response.failed });
+            })
+            .catch(error => {
+                console.error("Background script: Download error", error);
+                sendResponse({ success: false, error: error.message });
+            });
+        return true;
+    }
     return false
 });
 
