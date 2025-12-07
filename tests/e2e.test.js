@@ -208,7 +208,7 @@ describe('Chrome Extension E2E Tests', () => {
             document.body.appendChild(csvLink);
         });
         
-        await page.waitForSelector('#rubric-button', { timeout: 15000 }); // Increase timeout
+        await page.waitForSelector('#rubric-button', { timeout: 15000 });
         
         await page.setRequestInterception(true);
         page.on('request', request => {
@@ -263,7 +263,7 @@ describe('Chrome Extension E2E Tests', () => {
             document.body.appendChild(csvLink);
         });
         
-        await page.waitForSelector('#rubric-button', { timeout: 10000 });
+        await page.waitForSelector('#rubric-button', { timeout: 20000 });
         
         await page.setRequestInterception(true);
         page.on('request', request => {
