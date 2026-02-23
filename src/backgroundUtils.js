@@ -175,7 +175,7 @@ export const formatRubrics = async (standards, studentData, id) => {
         
         let standardPos = {};
         let foundStandards = [];
-        
+        let namePos;
         // Find standard positions
         cellsWithFormatting.forEach(cell => {
             if (!cell.bold && cell.value) {
@@ -187,7 +187,11 @@ export const formatRubrics = async (standards, studentData, id) => {
                         foundStandards.push(standard);
                     }
                 }
+                if (cell.value.trim().toLowerCase() == "name") {
+                    namePos = [cell.row, cell.col - 1];
+                }
             }
+            
         });
         
         console.log(`Found ${foundStandards.length} out of ${standards.length} standards`);
@@ -216,6 +220,16 @@ export const formatRubrics = async (standards, studentData, id) => {
             
             const updates = [];
             
+            // Add student name update if namePos was found
+            if (namePos) {
+                const name = student[0].replace(/\s*\(\d+\)$/, '');
+                const nameColLetter = sheets.columnIndexToLetter(namePos[1]);
+                updates.push({
+                    range: `${newTab.title}!${nameColLetter}${namePos[0]}`,
+                    values: [[name]]
+                });
+            }
+            
             for (let z = 0; z < foundStandards.length; z++){
                 const standard = foundStandards[z];
                 const pos = standardPos[standard];
@@ -240,7 +254,6 @@ export const formatRubrics = async (standards, studentData, id) => {
             }
         }
         
-        // NEW: Reorder sheets to match original student order
         console.log("Reordering sheets to match student list order...");
         const desiredOrder = ['Sheet1', ...studentData.map(student => student[0])];
         await sheets.reorderSheets(desiredOrder);
@@ -261,10 +274,19 @@ let downloadInProgress = false;
 // Export status checker function
 export const isDownloadInProgress = () => downloadInProgress;
 
-// You'll need to install pdf-lib
-// Run: npm install pdf-lib
+
 
 import { PDFDocument } from 'pdf-lib';
+
+// Add helper function to sanitize filenames
+const sanitizeFilename = (filename) => {
+    // Remove or replace invalid filename characters
+    return filename
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_') // Replace invalid chars with underscore
+        .replace(/\.+$/, '') // Remove trailing dots
+        .trim()
+        .substring(0, 200); // Limit length to 200 chars
+};
 
 export const handleSheetPdfDownload = async (spreadsheetId, tabId) => {
     // Check if a download is already in progress
@@ -301,8 +323,8 @@ export const handleSheetPdfDownload = async (spreadsheetId, tabId) => {
         }
         
         const metadata = await metadataResponse.json();
-        const spreadsheetTitle = metadata.properties.title;
-        const sheets = metadata.sheets;
+        const spreadsheetTitle = sanitizeFilename(metadata.properties.title);
+        const sheets = metadata.sheets.slice(1); // Skip first sheet
         
         if (sheets.length === 0) {
             throw new Error('No additional sheets to download');
@@ -315,7 +337,6 @@ export const handleSheetPdfDownload = async (spreadsheetId, tabId) => {
         console.log(`Downloading entire workbook as single PDF...`);
         
         // Download entire workbook as one PDF
-        // This URL downloads all sheets at once with portrait orientation and fit to page
         const workbookPdfUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&portrait=true&size=letter&scale=4&fitw=true`;
         
         const pdfResponse = await fetch(workbookPdfUrl, {
@@ -335,18 +356,16 @@ export const handleSheetPdfDownload = async (spreadsheetId, tabId) => {
         
         // Load the PDF document
         const pdfDoc = await PDFDocument.load(pdfBytes);
-        
         const totalPages = pdfDoc.getPageCount();
         
         console.log(`PDF has ${totalPages} pages for ${sheets.length} sheets`);
         
-        //This for loop splits the larger download by page #. I start at i = 1 to avoid the example sheet
-        for (let i = 1; i < Math.min(totalPages, sheets.length); i++) {
-            const sheetTitle = sheets[i].properties.title;
+        // Split PDF into individual pages
+        for (let i = 0; i < Math.min(totalPages, sheets.length); i++) {
+            const sheetTitle = sanitizeFilename(sheets[i].properties.title);
             
             // Create a new PDF with just this page
             const newPdf = await PDFDocument.create();
-            
             const [page] = await newPdf.copyPages(pdfDoc, [i]);
             newPdf.addPage(page);
             
@@ -370,10 +389,10 @@ export const handleSheetPdfDownload = async (spreadsheetId, tabId) => {
                 saveAs: false
             });
             
-            
+            console.log(`✓ Split and downloaded ${i + 1}/${sheets.length}: ${sheetTitle}`);
         }
 
-        console.log(`Download complete: ${sheets.length - 1} PDFs created from workbook`);
+        console.log(`Download complete: ${sheets.length} PDFs created from workbook`);
         return {count: sheets.length, failed: 0 };
 
     } finally {
@@ -589,7 +608,7 @@ export class SheetsAPI {
     async getAllSheets() {
       const info = await this.getSpreadsheetInfo();
       return info.sheets.map(sheet => ({
-        sheetId: sheet.properties.sheetId,
+        sheetId: sheet.sheetId,
         title: sheet.properties.title,
         index: sheet.properties.index
       }));

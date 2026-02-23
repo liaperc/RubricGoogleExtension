@@ -61,22 +61,39 @@ describe('Chrome Extension E2E Tests', () => {
     test('Button loads on canvas gradebook', async () => {
         const page = await browser.newPage();
 
-        await page.goto('https://instructure.com/courses/12345/gradebook', {
-            waitUntil: 'domcontentloaded'
+        // Mock window.alert to prevent blocking
+        await page.evaluateOnNewDocument(() => {
+            window.alert = (msg) => {
+                console.log('ALERT:', msg);
+            };
         });
 
-        // Inject content instead of replacing
-        await page.evaluate(() => {
-            const meta = document.createElement('meta');
-            meta.name = 'csrf-token';
-            meta.content = 'mock-csrf-token-12345';
-            document.head.appendChild(meta);
-
-            if (!document.getElementById('gradebook-actions')) {
-                const div = document.createElement('div');
-                div.id = 'gradebook-actions';
-                document.body.appendChild(div);
+        // Intercept the navigation and return your HTML
+        await page.setRequestInterception(true);
+        page.on('request', request => {
+            if (request.url().includes('instructure.com/courses/12345/gradebook')) {
+                request.respond({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta name="csrf-token" content="mock-csrf-token-12345">
+                        </head>
+                        <body>
+                            <div id="gradebook-actions"></div>
+                        </body>
+                        </html>
+                    `
+                });
+            } else {
+                request.continue();
             }
+        });
+
+        await page.goto('https://instructure.com/courses/12345/gradebook', {
+            waitUntil: 'domcontentloaded'
         });
 
         await page.waitForSelector('#rubric-button', { 
@@ -97,48 +114,44 @@ describe('Chrome Extension E2E Tests', () => {
     test('Complete workflow: Load gradebook -> Fetch CSV -> Sort data', async () => {
         const page = await browser.newPage();
         
-        // Enable console logging from the page
+        // Mock window.alert
+        await page.evaluateOnNewDocument(() => {
+            window.alert = (msg) => {
+                console.log('ALERT:', msg);
+            };
+            window.prompt = (msg, defaultValue) => {
+                console.log('PROMPT:', msg);
+                return defaultValue || 'test-spreadsheet-id';
+            };
+        });
+        
         page.on('console', msg => console.log('PAGE LOG:', msg.text()));
         
-        await page.goto('https://instructure.com/courses/12345/gradebook', {
-            waitUntil: 'domcontentloaded'
-        });
-        
-        // Inject content
-        await page.evaluate(() => {
-            const meta = document.createElement('meta');
-            meta.name = 'csrf-token';
-            meta.content = 'mock-csrf-token-12345';
-            document.head.appendChild(meta);
-
-            if (!document.getElementById('gradebook-actions')) {
-                const div = document.createElement('div');
-                div.id = 'gradebook-actions';
-                document.body.appendChild(div);
-            }
-
-            const csvLink = document.createElement('a');
-            csvLink.href = 'https://instructure.com/courses/12345/gradebook.csv';
-            csvLink.className = 'ui-button ui-widget';
-            csvLink.id = 'download_csv';
-            csvLink.textContent = 'Download Current Gradebook View';
-            document.body.appendChild(csvLink);
-        });
-        
-        await page.waitForSelector('#rubric-button', { 
-            timeout: 20000,
-            visible: true 
-        });
-        
-        const button = await page.$('#rubric-button');
-        expect(button).toBeTruthy();
-        
-        // Set up request interception AFTER button is ready
         await page.setRequestInterception(true);
         
         page.on('request', request => {
             const url = request.url();
-            if (url.includes('gradebook.csv') || url.includes('test.csv')) {
+            
+            if (url.includes('instructure.com/courses/12345/gradebook') && !url.includes('.csv')) {
+                request.respond({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta name="csrf-token" content="mock-csrf-token-12345">
+                        </head>
+                        <body>
+                            <div id="gradebook-actions"></div>
+                            <a href="https://instructure.com/courses/12345/gradebook.csv" 
+                               id="download_csv" 
+                               class="ui-button ui-widget">Download Current Gradebook View</a>
+                        </body>
+                        </html>
+                    `
+                });
+            } else if (url.includes('gradebook.csv') || url.includes('test.csv')) {
                 console.log('Intercepting CSV request:', url);
                 request.respond({
                     status: 200,
@@ -154,14 +167,25 @@ describe('Chrome Extension E2E Tests', () => {
             }
         });
         
+        await page.goto('https://instructure.com/courses/12345/gradebook', {
+            waitUntil: 'domcontentloaded'
+        });
+        
+        await page.waitForSelector('#rubric-button', { 
+            timeout: 20000,
+            visible: true 
+        });
+        
+        const button = await page.$('#rubric-button');
+        expect(button).toBeTruthy();
+        
         console.log('Clicking rubric button...');
         await button.click();
-        await wait(6000); // Increase wait time
+        await wait(6000);
         
         console.log('Worker logs collected:', workerLogs.length);
         console.log('All worker logs:', workerLogs);
         
-        // More flexible assertion - check if button was clicked at least
         const buttonClicked = await page.evaluate(() => {
             const btn = document.getElementById('rubric-button');
             return btn !== null;
@@ -169,7 +193,6 @@ describe('Chrome Extension E2E Tests', () => {
         
         expect(buttonClicked).toBe(true);
         
-        // If no worker logs, at least verify the CSV link exists
         const csvLinkExists = await page.$('#download_csv');
         expect(csvLinkExists).toBeTruthy();
         
@@ -179,40 +202,43 @@ describe('Chrome Extension E2E Tests', () => {
     test('Error handling: Invalid CSV format', async () => {
         const page = await browser.newPage();
         
+        // Mock window.alert and prompt
+        await page.evaluateOnNewDocument(() => {
+            window.alert = (msg) => {
+                console.log('ALERT:', msg);
+            };
+            window.prompt = (msg, defaultValue) => {
+                console.log('PROMPT:', msg);
+                return defaultValue || 'test-spreadsheet-id';
+            };
+        });
+        
         page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-        
-        await page.goto('https://instructure.com/courses/12345/gradebook', {
-            waitUntil: 'domcontentloaded'
-        });
-        
-        // Add a small wait before injecting content
-        await wait(500);
-        
-        await page.evaluate(() => {
-            const meta = document.createElement('meta');
-            meta.name = 'csrf-token';
-            meta.content = 'mock-csrf-token-12345';
-            document.head.appendChild(meta);
-
-            if (!document.getElementById('gradebook-actions')) {
-                const div = document.createElement('div');
-                div.id = 'gradebook-actions';
-                document.body.appendChild(div);
-            }
-
-            const csvLink = document.createElement('a');
-            csvLink.href = 'https://instructure.com/courses/12345/gradebook.csv';
-            csvLink.id = 'download_csv';
-            csvLink.className = 'ui-button ui-widget';
-            csvLink.textContent = 'Download CSV';
-            document.body.appendChild(csvLink);
-        });
-        
-        await page.waitForSelector('#rubric-button', { timeout: 15000 });
         
         await page.setRequestInterception(true);
         page.on('request', request => {
-            if (request.url().includes('gradebook.csv')) {
+            const url = request.url();
+            
+            if (url.includes('instructure.com/courses/12345/gradebook') && !url.includes('.csv')) {
+                request.respond({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta name="csrf-token" content="mock-csrf-token-12345">
+                        </head>
+                        <body>
+                            <div id="gradebook-actions"></div>
+                            <a href="https://instructure.com/courses/12345/gradebook.csv" 
+                               id="download_csv" 
+                               class="ui-button ui-widget">Download CSV</a>
+                        </body>
+                        </html>
+                    `
+                });
+            } else if (url.includes('gradebook.csv')) {
                 console.log('Intercepting CSV request with invalid data');
                 request.respond({
                     status: 200,
@@ -224,12 +250,17 @@ describe('Chrome Extension E2E Tests', () => {
             }
         });
         
+        await page.goto('https://instructure.com/courses/12345/gradebook', {
+            waitUntil: 'domcontentloaded'
+        });
+        
+        await page.waitForSelector('#rubric-button', { timeout: 25000 });
+        
         await page.click('#rubric-button');
         await wait(5000);
         
         console.log('Worker logs for error test:', workerLogs);
         
-        // Just verify the button exists and was clickable
         const buttonExists = await page.$('#rubric-button');
         expect(buttonExists).toBeTruthy();
         
@@ -239,35 +270,43 @@ describe('Chrome Extension E2E Tests', () => {
     test('Performance: Process real CSV with all students', async () => {
         const page = await browser.newPage();
         
-        page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-        
-        await page.goto('https://instructure.com/courses/12345/gradebook');
-        
-        await page.evaluate(() => {
-            const meta = document.createElement('meta');
-            meta.name = 'csrf-token';
-            meta.content = 'mock-csrf-token-12345';
-            document.head.appendChild(meta);
-
-            if (!document.getElementById('gradebook-actions')) {
-                const div = document.createElement('div');
-                div.id = 'gradebook-actions';
-                document.body.appendChild(div);
-            }
-
-            const csvLink = document.createElement('a');
-            csvLink.href = 'https://instructure.com/courses/12345/gradebook.csv';
-            csvLink.id = 'download_csv';
-            csvLink.className = 'ui-button ui-widget';
-            csvLink.textContent = 'Download CSV';
-            document.body.appendChild(csvLink);
+        // Mock window.alert and prompt
+        await page.evaluateOnNewDocument(() => {
+            window.alert = (msg) => {
+                console.log('ALERT:', msg);
+            };
+            window.prompt = (msg, defaultValue) => {
+                console.log('PROMPT:', msg);
+                return defaultValue || 'test-spreadsheet-id';
+            };
         });
         
-        await page.waitForSelector('#rubric-button', { timeout: 20000 });
+        page.on('console', msg => console.log('PAGE LOG:', msg.text()));
         
         await page.setRequestInterception(true);
         page.on('request', request => {
-            if (request.url().includes('gradebook.csv')) {
+            const url = request.url();
+            
+            if (url.includes('instructure.com/courses/12345/gradebook') && !url.includes('.csv')) {
+                request.respond({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta name="csrf-token" content="mock-csrf-token-12345">
+                        </head>
+                        <body>
+                            <div id="gradebook-actions"></div>
+                            <a href="https://instructure.com/courses/12345/gradebook.csv" 
+                               id="download_csv" 
+                               class="ui-button ui-widget">Download CSV</a>
+                        </body>
+                        </html>
+                    `
+                });
+            } else if (url.includes('gradebook.csv')) {
                 request.respond({
                     status: 200,
                     contentType: 'text/csv',
@@ -277,6 +316,10 @@ describe('Chrome Extension E2E Tests', () => {
                 request.continue();
             }
         });
+        
+        await page.goto('https://instructure.com/courses/12345/gradebook');
+        
+        await page.waitForSelector('#rubric-button', { timeout: 20000 });
         
         const startTime = Date.now();
         await page.click('#rubric-button');
@@ -288,9 +331,8 @@ describe('Chrome Extension E2E Tests', () => {
         console.log(`Processing time: ${processingTime}ms`);
         console.log(`CSV size: ${(testCSV.length / 1024).toFixed(2)} KB`);
         
-        expect(processingTime).toBeLessThan(15000); // More lenient
+        expect(processingTime).toBeLessThan(15000);
         
-        // Verify button still exists
         const buttonExists = await page.$('#rubric-button');
         expect(buttonExists).toBeTruthy();
         
