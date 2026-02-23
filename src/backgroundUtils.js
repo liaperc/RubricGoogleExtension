@@ -259,6 +259,11 @@ export const formatRubrics = async (standards, studentData, id) => {
         await sheets.reorderSheets(desiredOrder);
         console.log("Sheet reordering complete!");
         
+        // Delete Sheet1 after all rubrics are created
+        console.log("Deleting template Sheet1...");
+        await sheets.deleteSheetByTitle('Sheet1');
+        console.log("Template sheet deleted!");
+        
         const newUrl = `https://docs.google.com/spreadsheets/d/${id}/edit`;
         return newUrl;
 
@@ -324,7 +329,7 @@ export const handleSheetPdfDownload = async (spreadsheetId, tabId) => {
         
         const metadata = await metadataResponse.json();
         const spreadsheetTitle = sanitizeFilename(metadata.properties.title);
-        const sheets = metadata.sheets.slice(1); // Skip first sheet
+        const sheets = metadata.sheets
         
         if (sheets.length === 0) {
             throw new Error('No additional sheets to download');
@@ -751,6 +756,27 @@ export class SheetsAPI {
             .sort(); // Alphabetical sort
         
         await this.reorderSheets(sheetTitles);
+    }
+
+    // Delete a sheet by its title
+    async deleteSheetByTitle(sheetTitle) {
+        const info = await this.getSpreadsheetInfo();
+        const sheet = info.sheets.find(s => s.properties.title === sheetTitle);
+        
+        if (!sheet) {
+            throw new Error(`Sheet with title "${sheetTitle}" not found`);
+        }
+
+        const request = {
+            deleteSheet: {
+                sheetId: sheet.properties.sheetId
+            }
+        };
+
+        await this.request(':batchUpdate', {
+            method: 'POST',
+            body: JSON.stringify({ requests: [request] })
+        });
     }
   }
 
