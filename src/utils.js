@@ -125,18 +125,17 @@ export const getRubricSheet = async () => {
     let spreadsheetId;
     
     // Extract spreadsheet ID
-    
     if (trimmedInput.includes('docs.google.com/spreadsheets')) {
-        
         const match = trimmedInput.match(/\/d\/([a-zA-Z0-9_-]+)/);
         spreadsheetId = match ? match[1] : null;
-        console.log("Spreadsheet ID: ", spreadsheetId);
+        console.log("Extracted Spreadsheet ID from URL:", spreadsheetId);
     } else if (trimmedInput.match(/^[a-zA-Z0-9_-]+$/)) {
         spreadsheetId = trimmedInput;
+        console.log("Using direct Spreadsheet ID:", spreadsheetId);
     }
     
     if (!spreadsheetId) {
-        throw new Error("Could not extract spreadsheet ID");
+        throw new Error("Could not extract spreadsheet ID from the provided link");
     }
     
     // Get course name from the page - try multiple selectors
@@ -151,6 +150,9 @@ export const getRubricSheet = async () => {
     if (!newName) {
         throw new Error("No name provided");
     }
+    
+    console.log("Copying spreadsheet:", spreadsheetId, "with new name:", newName);
+    
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
             { 
@@ -160,11 +162,14 @@ export const getRubricSheet = async () => {
             },
             (response) => {
                 if (chrome.runtime.lastError) {
+                    console.error("Error copying spreadsheet:", chrome.runtime.lastError);
                     reject(new Error(chrome.runtime.lastError.message));
                 } else if (response.success) {
+                    console.log("Spreadsheet copied successfully. New ID:", response.id);
                     resolve(response.id);
                 } else {
-                    reject(new Error(response.error));
+                    console.error("Failed to copy spreadsheet:", response.error);
+                    reject(new Error(response.error || "Failed to copy spreadsheet"));
                 }
             }
         );
