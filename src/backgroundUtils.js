@@ -91,9 +91,7 @@ export const sortData = (data) => {
 //this function creates a copy link for the example rubric, but akso requests an API authentication token for google sheets API access. Note you need to be on a non-Nueva account to have this work.
 export const copySpreadsheet = async (spreadsheetId, newName) => {
     try {
-        console.log("Getting auth token...");
-        console.log("Source Spreadsheet ID:", spreadsheetId);
-        console.log("New name:", newName);
+        console.log("Copying spreadsheet:", spreadsheetId, "->", newName);
         
         // Get auth token
         const token = await new Promise((resolve, reject) => {
@@ -106,14 +104,11 @@ export const copySpreadsheet = async (spreadsheetId, newName) => {
             });
         });
         
-        console.log("Token received, attempting to copy spreadsheet...");
-        
         if (!token) {
             throw new Error("No authentication token received");
         }
         
-        // Directly copy the spreadsheet without verification
-        // This works even if the file is "Anyone with the link can view"
+        // Copy the spreadsheet
         const response = await fetch(
             `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/copy`,
             {
@@ -130,22 +125,47 @@ export const copySpreadsheet = async (spreadsheetId, newName) => {
         
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("API error response:", errorText);
+            console.error("Copy failed:", response.status, errorText);
+            
+            // Get user email for better error message
+            let userEmail = "your authenticated Google account";
+            try {
+                const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (userInfoResponse.ok) {
+                    const userInfo = await userInfoResponse.json();
+                    userEmail = userInfo.email;
+                }
+            } catch (e) {
+                // Ignore errors getting user info
+            }
             
             if (response.status === 404) {
-                throw new Error("Spreadsheet not found. Please check the URL is correct.");
+                throw new Error(
+                    `Spreadsheet not found.\n\n` +
+                    `Extension is signed in as: ${userEmail}\n\n` +
+                    `Please either:\n` +
+                    `1. Share the spreadsheet with ${userEmail}, OR\n` +
+                    `2. Set sharing to "Anyone with the link can view"\n\n` +
+                    `To change which Google account the extension uses, reinstall the extension.`
+                );
             } else if (response.status === 403) {
-                throw new Error("Permission denied. Make sure the spreadsheet is shared as 'Anyone with the link can view' or is shared with your Google account.");
+                throw new Error(
+                    `Permission denied.\n\n` +
+                    `Extension is signed in as: ${userEmail}\n\n` +
+                    `The spreadsheet must be shared with this account or set to "Anyone with the link can view".`
+                );
             } else {
-                throw new Error(`Failed to copy spreadsheet: ${response.status}`);
+                throw new Error(`Failed to copy spreadsheet (error ${response.status}). Check browser console for details.`);
             }
         }
         
         const newFile = await response.json();
-        console.log("New spreadsheet created with ID:", newFile.id);
+        console.log("Spreadsheet copied successfully:", newFile.id);
         
-        // Wait for the copy to be ready
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Brief wait for the copy to be ready
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
         return newFile.id;
         
