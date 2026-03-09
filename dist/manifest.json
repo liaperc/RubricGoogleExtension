@@ -28,7 +28,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/content.js-CP6mJHWV.js"
+        "assets/content.js-UZcWaQ1a.js"
       ],
       "matches": [
         "<all_urls>"
@@ -51,7 +51,7 @@
         "<all_urls>"
       ],
       "resources": [
-        "assets/content.js-CP6mJHWV.js"
+        "assets/content.js-UZcWaQ1a.js"
       ],
       "use_dynamic_url": false
     }
